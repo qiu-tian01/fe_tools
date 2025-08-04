@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>流式传输演示</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+        overflow: hidden;
+      }
+
+      .header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        text-align: center;
+      }
+
+      .header h1 {
+        font-size: 2.5em;
+        margin-bottom: 10px;
+      }
+
+      .header p {
+        opacity: 0.9;
+        font-size: 1.1em;
+      }
+
+      .content {
+        padding: 30px;
+      }
+
+      .status {
+        display: flex;
+        align-items: center;
+        margin-bottom: 20px;
+        padding: 15px;
+        border-radius: 10px;
+        background: #f8f9fa;
+      }
+
+      .status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 10px;
+        transition: background-color 0.3s;
+      }
+
+      .status-indicator.connected {
+        background-color: #28a745;
+        box-shadow: 0 0 10px #28a745;
+      }
+
+      .status-indicator.disconnected {
+        background-color: #dc3545;
+        box-shadow: 0 0 10px #dc3545;
+      }
+
+      .status-indicator.connecting {
+        background-color: #ffc107;
+        box-shadow: 0 0 10px #ffc107;
+        animation: pulse 1.5s infinite;
+      }
+
+      @keyframes pulse {
+        0% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+        100% {
+          opacity: 1;
+        }
+      }
+
+      .messages-container {
+        background: #f8f9fa;
+        border-radius: 10px;
+        padding: 20px;
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #e9ecef;
+      }
+
+      .message {
+        padding: 10px 15px;
+        margin-bottom: 10px;
+        border-radius: 8px;
+        background: white;
+        border-left: 4px solid #667eea;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        animation: slideIn 0.3s ease-out;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .message-time {
+        color: #6c757d;
+        font-size: 0.9em;
+        margin-bottom: 5px;
+      }
+
+      .message-content {
+        font-weight: 500;
+      }
+
+      .message.broadcast {
+        border-left-color: #28a745;
+        background: #d4edda;
+      }
+
+      .message.connection {
+        border-left-color: #17a2b8;
+        background: #d1ecf1;
+      }
+
+      .controls {
+        margin-top: 20px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-weight: 500;
+        transition: all 0.3s;
+        font-size: 14px;
+      }
+
+      .btn-primary {
+        background: #667eea;
+        color: white;
+      }
+
+      .btn-primary:hover {
+        background: #5a6fd8;
+        transform: translateY(-2px);
+      }
+
+      .btn-secondary {
+        background: #6c757d;
+        color: white;
+      }
+
+      .btn-secondary:hover {
+        background: #5a6268;
+      }
+
+      .btn-danger {
+        background: #dc3545;
+        color: white;
+      }
+
+      .btn-danger:hover {
+        background: #c82333;
+      }
+
+      .input-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 15px;
+      }
+
+      .form-control {
+        flex: 1;
+        padding: 10px 15px;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: border-color 0.3s;
+      }
+
+      .form-control:focus {
+        outline: none;
+        border-color: #667eea;
+      }
+
+      .stats {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 20px;
+        padding: 15px;
+        background: #e9ecef;
+        border-radius: 8px;
+        font-size: 0.9em;
+      }
+
+      .error {
+        background: #f8d7da;
+        color: #721c24;
+        padding: 10px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        border: 1px solid #f5c6cb;
+      }
+
+      .success {
+        background: #d4edda;
+        color: #155724;
+        padding: 10px;
+        border-radius: 8px;
+        margin-bottom: 15px;
+        border: 1px solid #c3e6cb;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🔄 流式传输演示</h1>
+        <p>Server-Sent Events (SSE) 实时数据推送</p>
+      </div>
+
+      <div class="content">
+        <div class="status">
+          <div class="status-indicator" id="statusIndicator"></div>
+          <span id="statusText">正在连接...</span>
+        </div>
+
+        <div id="messages" class="messages-container">
+          <div class="message">
+            <div class="message-content">等待连接...</div>
+          </div>
+        </div>
+
+        <div class="controls">
+          <button class="btn btn-primary" id="connectBtn">连接</button>
+          <button class="btn btn-secondary" id="disconnectBtn">断开</button>
+          <button class="btn btn-danger" id="clearBtn">清空消息</button>
+        </div>
+
+        <div class="input-group">
+          <input
+            type="text"
+            class="form-control"
+            id="broadcastInput"
+            placeholder="输入广播消息..."
+          />
+          <button class="btn btn-primary" id="broadcastBtn">广播</button>
+        </div>
+
+        <div class="stats">
+          <span>消息数量: <span id="messageCount">0</span></span>
+          <span>连接时间: <span id="connectionTime">--</span></span>
+          <span>最后更新: <span id="lastUpdate">--</span></span>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      class SSEManager {
+        constructor() {
+          this.source = null;
+          this.reconnectAttempts = 0;
+          this.maxReconnectAttempts = 5;
+          this.reconnectDelay = 1000;
+          this.connectionStartTime = null;
+          this.messageCount = 0;
+          this.isConnected = false;
+
+          this.initElements();
+          this.bindEvents();
+        }
+
+        initElements() {
+          this.statusIndicator = document.getElementById("statusIndicator");
+          this.statusText = document.getElementById("statusText");
+          this.messagesContainer = document.getElementById("messages");
+          this.connectBtn = document.getElementById("connectBtn");
+          this.disconnectBtn = document.getElementById("disconnectBtn");
+          this.clearBtn = document.getElementById("clearBtn");
+          this.broadcastInput = document.getElementById("broadcastInput");
+          this.broadcastBtn = document.getElementById("broadcastBtn");
+          this.messageCountSpan = document.getElementById("messageCount");
+          this.connectionTimeSpan = document.getElementById("connectionTime");
+          this.lastUpdateSpan = document.getElementById("lastUpdate");
+        }
+
+        bindEvents() {
+          this.connectBtn.addEventListener("click", () => this.connect());
+          this.disconnectBtn.addEventListener("click", () => this.disconnect());
+          this.clearBtn.addEventListener("click", () => this.clearMessages());
+          this.broadcastBtn.addEventListener("click", () =>
+            this.broadcastMessage()
+          );
+          this.broadcastInput.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") this.broadcastMessage();
+          });
+        }
+
+        updateStatus(status, text) {
+          this.statusIndicator.className = `status-indicator ${status}`;
+          this.statusText.textContent = text;
+        }
+
+        addMessage(data) {
+          const messageDiv = document.createElement("div");
+          messageDiv.className = `message ${data.type || "time"}`;
+
+          const timeDiv = document.createElement("div");
+          timeDiv.className = "message-time";
+          timeDiv.textContent = new Date().toLocaleTimeString();
+
+          const contentDiv = document.createElement("div");
+          contentDiv.className = "message-content";
+          contentDiv.textContent = data.message || data;
+
+          messageDiv.appendChild(timeDiv);
+          messageDiv.appendChild(contentDiv);
+
+          this.messagesContainer.appendChild(messageDiv);
+          this.messagesContainer.scrollTop =
+            this.messagesContainer.scrollHeight;
+
+          this.messageCount++;
+          this.messageCountSpan.textContent = this.messageCount;
+          this.lastUpdateSpan.textContent = new Date().toLocaleTimeString();
+        }
+
+        showNotification(message, type = "success") {
+          const notification = document.createElement("div");
+          notification.className = type;
+          notification.textContent = message;
+
+          const content = document.querySelector(".content");
+          content.insertBefore(notification, content.firstChild);
+
+          setTimeout(() => {
+            notification.remove();
+          }, 3000);
+        }
+
+        connect() {
+          if (this.isConnected) return;
+
+          this.updateStatus("connecting", "正在连接...");
+          this.connectionStartTime = Date.now();
+
+          try {
+            this.source = new EventSource("/sse");
+
+            this.source.onopen = () => {
+              this.isConnected = true;
+              this.reconnectAttempts = 0;
+              this.updateStatus("connected", "已连接");
+              this.showNotification("连接成功！", "success");
+              this.updateConnectionTime();
+            };
+
+            this.source.onmessage = (event) => {
+              try {
+                const data = JSON.parse(event.data);
+                this.addMessage(data);
+              } catch (e) {
+                // 如果不是JSON格式，直接显示原始数据
+                this.addMessage({ message: event.data });
+              }
+            };
+
+            this.source.onerror = (error) => {
+              console.error("SSE连接错误:", error);
+              this.handleConnectionError();
+            };
+          } catch (error) {
+            console.error("创建SSE连接失败:", error);
+            this.handleConnectionError();
+          }
+        }
+
+        disconnect() {
+          if (this.source) {
+            this.source.close();
+            this.source = null;
+          }
+          this.isConnected = false;
+          this.updateStatus("disconnected", "已断开");
+          this.showNotification("连接已断开", "error");
+        }
+
+        handleConnectionError() {
+          this.isConnected = false;
+          this.updateStatus("disconnected", "连接失败");
+
+          if (this.reconnectAttempts < this.maxReconnectAttempts) {
+            this.reconnectAttempts++;
+            this.showNotification(
+              `连接失败，${this.reconnectDelay / 1000}秒后重试... (${
+                this.reconnectAttempts
+              }/${this.maxReconnectAttempts})`,
+              "error"
+            );
+
+            setTimeout(() => {
+              this.connect();
+            }, this.reconnectDelay);
+          } else {
+            this.showNotification("连接失败，已达到最大重试次数", "error");
+          }
+        }
+
+        clearMessages() {
+          this.messagesContainer.innerHTML = "";
+          this.messageCount = 0;
+          this.messageCountSpan.textContent = "0";
+          this.showNotification("消息已清空", "success");
+        }
+
+        async broadcastMessage() {
+          const message = this.broadcastInput.value.trim();
+          if (!message) {
+            this.showNotification("请输入消息内容", "error");
+            return;
+          }
+
+          try {
+            const response = await fetch("/broadcast", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({ message }),
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+              this.showNotification(
+                `广播成功！当前连接数: ${result.clientsCount}`,
+                "success"
+              );
+              this.broadcastInput.value = "";
+            } else {
+              this.showNotification("广播失败: " + result.error, "error");
+            }
+          } catch (error) {
+            console.error("广播消息失败:", error);
+            this.showNotification("广播失败，请检查网络连接", "error");
+          }
+        }
+
+        updateConnectionTime() {
+          if (this.connectionStartTime) {
+            const elapsed = Math.floor(
+              (Date.now() - this.connectionStartTime) / 1000
+            );
+            this.connectionTimeSpan.textContent = `${elapsed}秒`;
+          }
+        }
+
+        // 定期更新连接时间
+        startTimeUpdate() {
+          setInterval(() => {
+            if (this.isConnected) {
+              this.updateConnectionTime();
+            }
+          }, 1000);
+        }
+      }
+
+      // 初始化应用
+      document.addEventListener("DOMContentLoaded", () => {
+        const sseManager = new SSEManager();
+        sseManager.startTimeUpdate();
+
+        // 自动连接
+        sseManager.connect();
+      });
+    </script>
+  </body>
+</html>

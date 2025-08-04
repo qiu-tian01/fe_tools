@@ -1,0 +1,23 @@
+{
+  "name": "streamtransmission",
+  "version": "1.0.0",
+  "description": "Server-Sent Events (SSE) 流式传输演示项目",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["sse", "streaming", "real-time", "express", "javascript"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^5.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
